@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
+    
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="s"/>
+    <arg value="n"/>
+    
+    <config name="ignore_warnings_on_exit" value="1"/>
+    
+    <!-- PSR-12 стандарт -->
+    <rule ref="PSR12"/>
+    
+    <exclude name="vendor/"/>
+    <exclude name="node_modules/"/>
+    <exclude name="tests/"/>
+    
+    <rule name="Generic.WhiteSpace.ScopeIndent">
+        <properties>
+            <property name="indent" value="4"/>
+        </properties>
+    </rule>
+    
+</ruleset>

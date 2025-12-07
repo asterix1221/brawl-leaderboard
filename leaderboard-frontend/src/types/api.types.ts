@@ -37,9 +37,7 @@ export interface ErrorResponse {
   code: string;
 }
 
-export interface LeaderboardResponse {
-  success: boolean;
-  data: {
+export interface LeaderboardResponse extends ApiResponse<{
     entries: Array<{
       rank: number;
       playerId: string;
@@ -52,8 +50,7 @@ export interface LeaderboardResponse {
     page: number;
     limit: number;
     hasMore: boolean;
-  };
-}
+  }> {}
 
 export interface SearchPlayersRequest {
   q: string;
@@ -61,9 +58,7 @@ export interface SearchPlayersRequest {
   offset?: number;
 }
 
-export interface SearchPlayersResponse {
-  success: boolean;
-  data: {
+export interface SearchPlayersResponse extends ApiResponse<{
     players: Array<{
       id: string;
       nickname: string;
@@ -72,8 +67,7 @@ export interface SearchPlayersResponse {
       level: number;
     }>;
     total: number;
-  };
-}
+  }> {}
 
 export interface PlayerProfileResponse {
   success: boolean;

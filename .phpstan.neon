@@ -1,0 +1,10 @@
+parameters:
+    level: 6
+    paths:
+        - src/
+    excludePaths:
+        - vendor/
+    checkUninitializedProperties: true
+    checkDynamicProperties: true
+    checkExplicitMixedMissingReturn: false
+    reportUnmatchedIgnoredErrors: false

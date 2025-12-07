@@ -3,58 +3,29 @@ namespace Tests\Unit\Application\UseCase\Leaderboard;
 
 use PHPUnit\Framework\TestCase;
 use App\Application\UseCase\Leaderboard\GetGlobalLeaderboardUseCase;
-use App\Application\DTO\LeaderboardRequestDTO;
-use App\Application\DTO\LeaderboardResponseDTO;
-use App\Domain\Repository\ScoreRepositoryInterface;
+use App\Application\Service\CacheService;
 use App\Domain\Repository\PlayerRepositoryInterface;
-use App\Domain\Entity\Score;
 use App\Domain\Entity\Player;
-use App\Domain\Entity\Season;
 use App\Domain\ValueObject\PlayerId;
 use App\Domain\ValueObject\Trophy;
 
 class GetGlobalLeaderboardUseCaseTest extends TestCase {
     private GetGlobalLeaderboardUseCase $useCase;
-    private $scoreRepositoryMock;
     private $playerRepositoryMock;
+    private $cacheServiceMock;
 
     protected function setUp(): void {
-        $this->scoreRepositoryMock = $this->createMock(ScoreRepositoryInterface::class);
         $this->playerRepositoryMock = $this->createMock(PlayerRepositoryInterface::class);
+        $this->cacheServiceMock = $this->createMock(CacheService::class);
 
         $this->useCase = new GetGlobalLeaderboardUseCase(
-            $this->scoreRepositoryMock,
-            $this->playerRepositoryMock
+            $this->playerRepositoryMock,
+            $this->cacheServiceMock
         );
     }
 
     public function testGetGlobalLeaderboardSuccessfully(): void {
         // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: 'US',
-            limit: 10,
-            offset: 0
-        );
-
-        $season = $this->createMock(Season::class);
-        $season->method('getId')->willReturn('season1');
-
-        $score1 = new Score(
-            id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-            playerId: new PlayerId('player1'),
-            season: $season,
-            trophies: new Trophy(3000),
-            recordedAt: new \DateTime('2023-01-01')
-        );
-
-        $score2 = new Score(
-            id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-            playerId: new PlayerId('player2'),
-            season: $season,
-            trophies: new Trophy(2500),
-            recordedAt: new \DateTime('2023-01-01')
-        );
-
         $player1 = new Player(
             id: new PlayerId('player1'),
             nickname: 'PlayerOne',
@@ -69,85 +40,108 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             region: 'US'
         );
 
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findTopByRegion')
-            ->with('US', 10, 0)
-            ->willReturn([$score1, $score2]);
+            ->method('get')
+            ->willReturn(null);
 
         $this->playerRepositoryMock
-            ->expects($this->exactly(2))
-            ->method('findById')
-            ->withConsecutive(['player1'], ['player2'])
-            ->willReturnOnConsecutiveCalls($player1, $player2);
+            ->expects($this->once())
+            ->method('findTopByTrophies')
+            ->with(10, 0)
+            ->willReturn([$player1, $player2]);
+
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('countAll')
+            ->willReturn(2);
+
+        $this->cacheServiceMock
+            ->expects($this->once())
+            ->method('set');
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute(10, 0);
 
         // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(2, $result->players);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('entries', $result);
+        $this->assertArrayHasKey('total', $result);
+        $this->assertCount(2, $result['entries']);
         
-        $firstPlayer = $result->players[0];
-        $this->assertEquals('player1', $firstPlayer['id']);
+        $firstPlayer = $result['entries'][0];
+        $this->assertEquals('player1', $firstPlayer['playerId']);
         $this->assertEquals('PlayerOne', $firstPlayer['nickname']);
-        $this->assertEquals(3000, $firstPlayer['trophies']);
+        $this->assertEquals(3000, $firstPlayer['totalTrophies']);
         $this->assertEquals(1, $firstPlayer['rank']);
         $this->assertEquals(4, $firstPlayer['level']);
 
-        $secondPlayer = $result->players[1];
-        $this->assertEquals('player2', $secondPlayer['id']);
+        $secondPlayer = $result['entries'][1];
+        $this->assertEquals('player2', $secondPlayer['playerId']);
         $this->assertEquals('PlayerTwo', $secondPlayer['nickname']);
-        $this->assertEquals(2500, $secondPlayer['trophies']);
+        $this->assertEquals(2500, $secondPlayer['totalTrophies']);
         $this->assertEquals(2, $secondPlayer['rank']);
         $this->assertEquals(3, $secondPlayer['level']);
     }
 
     public function testGetGlobalLeaderboardWithEmptyResult(): void {
         // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: 'EU',
-            limit: 10,
-            offset: 0
-        );
-
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findTopByRegion')
-            ->with('EU', 10, 0)
+            ->method('get')
+            ->willReturn(null);
+
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('findTopByTrophies')
+            ->with(10, 0)
             ->willReturn([]);
 
         $this->playerRepositoryMock
-            ->expects($this->never())
-            ->method('findById');
+            ->expects($this->once())
+            ->method('countAll')
+            ->willReturn(0);
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute(10, 0);
 
         // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(0, $result->players);
+        $this->assertIsArray($result);
+        $this->assertCount(0, $result['entries']);
+        $this->assertEquals(0, $result['total']);
+    }
+
+    public function testGetGlobalLeaderboardWithCachedResult(): void {
+        // Arrange
+        $cachedData = json_encode([
+            'entries' => [
+                ['playerId' => 'player1', 'nickname' => 'CachedPlayer', 'totalTrophies' => 5000, 'rank' => 1, 'level' => 5]
+            ],
+            'total' => 1,
+            'hasMore' => false,
+            'page' => 1
+        ]);
+
+        $this->cacheServiceMock
+            ->expects($this->once())
+            ->method('get')
+            ->willReturn($cachedData);
+
+        $this->playerRepositoryMock
+            ->expects($this->never())
+            ->method('findTopByTrophies');
+
+        // Act
+        $result = $this->useCase->execute(10, 0);
+
+        // Assert
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result['entries']);
+        $this->assertEquals('CachedPlayer', $result['entries'][0]['nickname']);
     }
 
     public function testGetGlobalLeaderboardWithPagination(): void {
         // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: 'US',
-            limit: 5,
-            offset: 10
-        );
-
-        $season = $this->createMock(Season::class);
-        $season->method('getId')->willReturn('season1');
-
-        $score = new Score(
-            id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-            playerId: new PlayerId('player1'),
-            season: $season,
-            trophies: new Trophy(2000),
-            recordedAt: new \DateTime('2023-01-01')
-        );
-
         $player = new Player(
             id: new PlayerId('player1'),
             nickname: 'PlayerOne',
@@ -155,123 +149,65 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             region: 'US'
         );
 
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findTopByRegion')
-            ->with('US', 5, 10)
-            ->willReturn([$score]);
-
-        $this->playerRepositoryMock
-            ->expects($this->once())
-            ->method('findById')
-            ->with('player1')
-            ->willReturn($player);
-
-        // Act
-        $result = $this->useCase->execute($request);
-
-        // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(1, $result->players);
-        
-        $playerData = $result->players[0];
-        $this->assertEquals('player1', $playerData['id']);
-        $this->assertEquals('PlayerOne', $playerData['nickname']);
-        $this->assertEquals(2000, $playerData['trophies']);
-        $this->assertEquals(1, $playerData['rank']); // Rank is relative to returned results
-        $this->assertEquals(3, $playerData['level']);
-    }
-
-    public function testGetGlobalLeaderboardWithPlayerNotFound(): void {
-        // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: 'US',
-            limit: 10,
-            offset: 0
-        );
-
-        $season = $this->createMock(Season::class);
-        $season->method('getId')->willReturn('season1');
-
-        $score = new Score(
-            id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-            playerId: new PlayerId('player1'),
-            season: $season,
-            trophies: new Trophy(1500),
-            recordedAt: new \DateTime('2023-01-01')
-        );
-
-        $this->scoreRepositoryMock
-            ->expects($this->once())
-            ->method('findTopByRegion')
-            ->with('US', 10, 0)
-            ->willReturn([$score]);
-
-        $this->playerRepositoryMock
-            ->expects($this->once())
-            ->method('findById')
-            ->with('player1')
+            ->method('get')
             ->willReturn(null);
 
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('findTopByTrophies')
+            ->with(5, 10)
+            ->willReturn([$player]);
+
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('countAll')
+            ->willReturn(100);
+
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute(5, 10);
 
         // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(0, $result->players); // Player not found, so filtered out
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result['entries']);
+        $this->assertEquals(11, $result['entries'][0]['rank']); // offset + index + 1
+        $this->assertTrue($result['hasMore']);
+        $this->assertEquals(3, $result['page']); // (10 / 5) + 1
     }
 
-    public function testGetGlobalLeaderboardWithDefaultParameters(): void {
+    public function testGetGlobalLeaderboardLimitsCappedAt500(): void {
         // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: null,
-            limit: null,
-            offset: null
-        );
-
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findTopByRegion')
-            ->with(null, 50, 0) // Default values
+            ->method('get')
+            ->willReturn(null);
+
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('findTopByTrophies')
+            ->with(500, 0) // Should be capped at 500
             ->willReturn([]);
 
         $this->playerRepositoryMock
-            ->expects($this->never())
-            ->method('findById');
+            ->expects($this->once())
+            ->method('countAll')
+            ->willReturn(0);
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute(1000, 0); // Request 1000, should be capped
 
         // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(0, $result->players);
+        $this->assertIsArray($result);
     }
 
     public function testGetGlobalLeaderboardWithDifferentTrophyLevels(): void {
         // Arrange
-        $request = new LeaderboardRequestDTO(
-            region: 'US',
-            limit: 10,
-            offset: 0
-        );
-
-        $season = $this->createMock(Season::class);
-        $season->method('getId')->willReturn('season1');
-
-        $scores = [];
         $players = [];
         $expectedLevels = [1, 2, 3, 4];
         $expectedTrophies = [500, 1500, 2500, 4000];
 
         for ($i = 0; $i < 4; $i++) {
-            $scores[] = new Score(
-                id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-                playerId: new PlayerId("player{$i}"),
-                season: $season,
-                trophies: new Trophy($expectedTrophies[$i]),
-                recordedAt: new \DateTime('2023-01-01')
-            );
-
             $players[] = new Player(
                 id: new PlayerId("player{$i}"),
                 nickname: "Player{$i}",
@@ -280,27 +216,32 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             );
         }
 
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findTopByRegion')
-            ->willReturn($scores);
+            ->method('get')
+            ->willReturn(null);
 
         $this->playerRepositoryMock
-            ->expects($this->exactly(4))
-            ->method('findById')
-            ->willReturn(...$players);
+            ->expects($this->once())
+            ->method('findTopByTrophies')
+            ->willReturn($players);
+
+        $this->playerRepositoryMock
+            ->expects($this->once())
+            ->method('countAll')
+            ->willReturn(4);
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute(10, 0);
 
         // Assert
-        $this->assertInstanceOf(LeaderboardResponseDTO::class, $result);
-        $this->assertCount(4, $result->players);
+        $this->assertIsArray($result);
+        $this->assertCount(4, $result['entries']);
 
         for ($i = 0; $i < 4; $i++) {
-            $playerData = $result->players[$i];
+            $playerData = $result['entries'][$i];
             $this->assertEquals($expectedLevels[$i], $playerData['level']);
-            $this->assertEquals($expectedTrophies[$i], $playerData['trophies']);
+            $this->assertEquals($expectedTrophies[$i], $playerData['totalTrophies']);
         }
     }
 }

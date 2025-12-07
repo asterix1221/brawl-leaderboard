@@ -30,180 +30,160 @@ class SyncBrawlStarsDataUseCaseTest extends TestCase {
 
     public function testSyncDataSuccessfullyCreatesNewPlayerAndScore(): void {
         // Arrange
-        $playerId = 'player123';
         $brawlStarsData = [
-            'id' => $playerId,
-            'nickname' => 'TestPlayer',
-            'totalTrophies' => 1500,
-            'region' => 'US',
-            'lastSyncedAt' => '2023-01-01T12:00:00Z'
+            [
+                'tag' => 'player123',
+                'name' => 'TestPlayer',
+                'trophies' => 1500,
+                'club' => ['tag' => 'GLOBAL']
+            ]
         ];
 
         $this->brawlStarsServiceMock
             ->expects($this->once())
-            ->method('getPlayerData')
-            ->with($playerId)
+            ->method('getTopPlayers')
+            ->with(1000)
             ->willReturn($brawlStarsData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
             ->method('findById')
-            ->with($playerId)
+            ->with($this->equalTo(new PlayerId('player123')))
             ->willReturn(null);
 
         $this->playerRepositoryMock
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(function($player) use ($playerId) {
-                return $player->getId()->getValue() === $playerId &&
+            ->with($this->callback(function($player) {
+                return $player->getId()->getValue() === 'player123' &&
                        $player->getNickname() === 'TestPlayer' &&
                        $player->getTotalTrophies()->getValue() === 1500 &&
-                       $player->getRegion() === 'US';
+                       $player->getRegion() === 'GLOBAL';
             }));
 
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findByPlayerAndSeason')
-            ->willReturn(null);
-
-        $this->scoreRepositoryMock
-            ->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function($score) use ($playerId) {
-                return $score->getPlayerId()->getValue() === $playerId &&
-                       $score->getTrophies()->getValue() === 1500;
-            }));
+            ->method('flush');
 
         // Act
-        $result = $this->useCase->execute($playerId);
+        $result = $this->useCase->execute();
 
         // Assert
-        $this->assertTrue($result);
+        $this->assertIsArray($result);
+        $this->assertEquals(1, $result['synced']);
+        $this->assertEquals(0, $result['errors']);
+        $this->assertArrayHasKey('timestamp', $result);
     }
 
     public function testSyncDataSuccessfullyUpdatesExistingPlayerAndCreatesNewScore(): void {
         // Arrange
-        $playerId = 'player123';
         $existingPlayer = new Player(
-            id: new PlayerId($playerId),
-            nickname: 'OldNickname',
-            totalTrophies: new Trophy(1000),
-            region: 'EU'
+            new PlayerId('player123'),
+            'OldNickname',
+            new Trophy(1000),
+            'EU'
         );
 
         $brawlStarsData = [
-            'id' => $playerId,
-            'nickname' => 'NewNickname',
-            'totalTrophies' => 1500,
-            'region' => 'US',
-            'lastSyncedAt' => '2023-01-01T12:00:00Z'
+            [
+                'tag' => 'player123',
+                'name' => 'NewNickname',
+                'trophies' => 1500,
+                'club' => ['tag' => 'GLOBAL']
+            ]
         ];
 
         $this->brawlStarsServiceMock
             ->expects($this->once())
-            ->method('getPlayerData')
-            ->with($playerId)
+            ->method('getTopPlayers')
+            ->with(1000)
             ->willReturn($brawlStarsData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
             ->method('findById')
-            ->with($playerId)
+            ->with($this->equalTo(new PlayerId('player123')))
             ->willReturn($existingPlayer);
 
         $this->playerRepositoryMock
             ->expects($this->once())
             ->method('save')
-            ->with($this->callback(function($player) use ($playerId) {
-                return $player->getId()->getValue() === $playerId &&
+            ->with($this->callback(function($player) {
+                return $player->getId()->getValue() === 'player123' &&
                        $player->getNickname() === 'NewNickname' &&
                        $player->getTotalTrophies()->getValue() === 1500 &&
-                       $player->getRegion() === 'US';
+                       $player->getRegion() === 'GLOBAL';
             }));
 
-        $this->scoreRepositoryMock
+        $this->cacheServiceMock
             ->expects($this->once())
-            ->method('findByPlayerAndSeason')
-            ->willReturn(null);
-
-        $this->scoreRepositoryMock
-            ->expects($this->once())
-            ->method('save')
-            ->with($this->callback(function($score) use ($playerId) {
-                return $score->getPlayerId()->getValue() === $playerId &&
-                       $score->getTrophies()->getValue() === 1500;
-            }));
+            ->method('flush');
 
         // Act
-        $result = $this->useCase->execute($playerId);
+        $result = $this->useCase->execute();
 
         // Assert
-        $this->assertTrue($result);
+        $this->assertIsArray($result);
+        $this->assertEquals(1, $result['synced']);
+        $this->assertEquals(0, $result['errors']);
+        $this->assertArrayHasKey('timestamp', $result);
     }
 
-    public function testSyncDataSuccessfullyUpdatesExistingScore(): void {
+    public function testSyncDataSuccessfullyHandlesMultiplePlayersWithErrors(): void {
         // Arrange
-        $playerId = 'player123';
-        $existingPlayer = new Player(
-            id: new PlayerId($playerId),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1000),
-            region: 'US'
-        );
-
-        $existingScore = new Score(
-            id: $this->createMock(\App\Domain\ValueObject\Uuid::class),
-            playerId: new PlayerId($playerId),
-            season: $this->createMock(Season::class),
-            trophies: new Trophy(1000),
-            recordedAt: new \DateTime('2023-01-01')
-        );
-
         $brawlStarsData = [
-            'id' => $playerId,
-            'nickname' => 'TestPlayer',
-            'totalTrophies' => 1500,
-            'region' => 'US',
-            'lastSyncedAt' => '2023-01-01T12:00:00Z'
+            [
+                'tag' => 'player123',
+                'name' => 'TestPlayer1',
+                'trophies' => 1500,
+                'club' => ['tag' => 'GLOBAL']
+            ],
+            [
+                'tag' => 'player456', // This will cause an error
+                'name' => 'TestPlayer2',
+                'trophies' => 2000,
+                'club' => ['tag' => 'GLOBAL']
+            ]
         ];
 
         $this->brawlStarsServiceMock
             ->expects($this->once())
-            ->method('getPlayerData')
-            ->with($playerId)
+            ->method('getTopPlayers')
+            ->with(1000)
             ->willReturn($brawlStarsData);
 
         $this->playerRepositoryMock
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('findById')
-            ->with($playerId)
-            ->willReturn($existingPlayer);
+            ->willReturnCallback(function($playerId) {
+                return $playerId->getValue() === 'player123' ? null : null;
+            });
 
+        // First save succeeds, second save throws exception
         $this->playerRepositoryMock
-            ->expects($this->once())
-            ->method('save');
-
-        $this->scoreRepositoryMock
-            ->expects($this->once())
-            ->method('findByPlayerAndSeason')
-            ->willReturn($existingScore);
-
-        $this->scoreRepositoryMock
-            ->expects($this->once())
+            ->expects($this->exactly(2))
             ->method('save')
-            ->with($this->callback(function($score) use ($playerId) {
-                return $score->getPlayerId()->getValue() === $playerId &&
-                       $score->getTrophies()->getValue() === 1500;
-            }));
+            ->willReturnCallback(function($player) {
+                if ($player->getId()->getValue() === 'player456') {
+                    throw new \Exception('Database error');
+                }
+            });
+
+        $this->cacheServiceMock
+            ->expects($this->once())
+            ->method('flush');
 
         // Act
-        $result = $this->useCase->execute($playerId);
+        $result = $this->useCase->execute();
 
         // Assert
-        $this->assertTrue($result);
+        $this->assertIsArray($result);
+        $this->assertEquals(1, $result['synced']); // Only first player synced
+        $this->assertEquals(1, $result['errors']); // Second player error
+        $this->assertArrayHasKey('timestamp', $result);
     }
 
-    public function testSyncDataWithBrawlStarsServiceExceptionReturnsFalse(): void {
+    public function testSyncDataWithBrawlStarsServiceExceptionThrowsRuntimeException(): void {
         // Arrange
         $this->brawlStarsServiceMock
             ->expects($this->once())

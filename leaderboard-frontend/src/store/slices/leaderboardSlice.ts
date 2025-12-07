@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { LeaderboardEntry } from '../../types/domain.types';
+import type { LeaderboardEntry } from '../../types/domain.types';
 import leaderboardService from '../../services/api/leaderboardService';
 
 interface LeaderboardState {
@@ -145,7 +145,7 @@ export const useLeaderboardStore = create<LeaderboardState>((set, get) => ({
 
       if (response.success && response.data) {
         set({
-          searchResults: response.data.players.map((player, index) => ({
+          searchResults: response.data.players.map((player: any, index: number) => ({
             rank: index + 1,
             playerId: player.id,
             nickname: player.nickname,

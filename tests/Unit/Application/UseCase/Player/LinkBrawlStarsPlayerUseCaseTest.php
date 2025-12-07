@@ -3,259 +3,343 @@ namespace Tests\Unit\Application\UseCase\Player;
 
 use PHPUnit\Framework\TestCase;
 use App\Application\UseCase\Player\LinkBrawlStarsPlayerUseCase;
-use App\Application\DTO\LinkPlayerRequestDTO;
-use App\Application\DTO\PlayerResponseDTO;
+use App\Application\Service\BrawlStarsService;
 use App\Domain\Entity\Player;
 use App\Domain\Entity\User;
 use App\Domain\Repository\PlayerRepositoryInterface;
 use App\Domain\Repository\UserRepositoryInterface;
 use App\Domain\ValueObject\PlayerId;
 use App\Domain\ValueObject\Trophy;
-use App\Domain\Exception\PlayerAlreadyLinkedToUserException;
+use App\Domain\ValueObject\Uuid;
 use App\Domain\Exception\PlayerNotFoundException;
 
 class LinkBrawlStarsPlayerUseCaseTest extends TestCase {
     private LinkBrawlStarsPlayerUseCase $useCase;
     private $playerRepositoryMock;
     private $userRepositoryMock;
+    private $brawlStarsServiceMock;
 
     protected function setUp(): void {
         $this->playerRepositoryMock = $this->createMock(PlayerRepositoryInterface::class);
         $this->userRepositoryMock = $this->createMock(UserRepositoryInterface::class);
+        $this->brawlStarsServiceMock = $this->createMock(BrawlStarsService::class);
 
         $this->useCase = new LinkBrawlStarsPlayerUseCase(
             $this->playerRepositoryMock,
-            $this->userRepositoryMock
+            $this->userRepositoryMock,
+            $this->brawlStarsServiceMock
         );
     }
 
     public function testLinkPlayerSuccessfully(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'player456',
-            nickname: 'TestPlayer',
-            region: 'US'
-        );
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'player456';
+        
+        $playerData = [
+            'name' => 'TestPlayer',
+            'trophies' => 1500,
+            'club' => ['tag' => 'GLOBAL']
+        ];
 
         $player = new Player(
-            id: new PlayerId('player456'),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1500),
-            region: 'US'
+            new PlayerId($brawlStarsPlayerId),
+            'TestPlayer',
+            new Trophy(1500),
+            'GLOBAL'
         );
+
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
+        );
+
+        $this->userRepositoryMock
+            ->expects($this->once())
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
+            ->willReturn($playerData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
-            ->with('player456')
-            ->willReturn($player);
-
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('findLinkedPlayerId')
-            ->with('user123')
+            ->method('findById')
+            ->with($this->equalTo(new PlayerId($brawlStarsPlayerId)))
             ->willReturn(null);
 
-        $this->userRepositoryMock
+        $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('linkPlayerToUser')
-            ->with('user123', 'player456');
+            ->method('save')
+            ->with($this->isInstanceOf(Player::class));
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute($userId, $brawlStarsPlayerId);
 
         // Assert
-        $this->assertInstanceOf(PlayerResponseDTO::class, $result);
-        $this->assertEquals('player456', $result->id);
-        $this->assertEquals('TestPlayer', $result->nickname);
-        $this->assertEquals(1500, $result->totalTrophies);
-        $this->assertEquals('US', $result->region);
+        $this->assertInstanceOf(Player::class, $result);
+        $this->assertEquals($brawlStarsPlayerId, $result->getId()->getValue());
+        $this->assertEquals('TestPlayer', $result->getNickname());
+        $this->assertEquals(1500, $result->getTotalTrophies()->getValue());
+        $this->assertEquals('GLOBAL', $result->getRegion());
     }
 
     public function testLinkNonExistentPlayerThrowsException(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'nonexistent',
-            nickname: 'TestPlayer',
-            region: 'US'
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'nonexistent';
+        
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
         );
 
-        $this->playerRepositoryMock
+        $this->userRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
-            ->with('nonexistent')
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
             ->willReturn(null);
 
-        $this->userRepositoryMock
+        $this->playerRepositoryMock
             ->expects($this->never())
-            ->method('findLinkedPlayerId');
+            ->method('findById');
 
-        $this->userRepositoryMock
+        $this->playerRepositoryMock
             ->expects($this->never())
-            ->method('linkPlayerToUser');
+            ->method('save');
 
         // Act & Assert
         $this->expectException(PlayerNotFoundException::class);
-        $this->expectExceptionMessage('Player not found');
+        $this->expectExceptionMessage('Player not found in Brawl Stars API');
 
-        $this->useCase->execute($request);
+        $this->useCase->execute($userId, $brawlStarsPlayerId);
     }
 
     public function testLinkPlayerAlreadyLinkedToUserThrowsException(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'player456',
-            nickname: 'TestPlayer',
-            region: 'US'
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'player456';
+        
+        $playerData = [
+            'name' => 'TestPlayer',
+            'trophies' => 1500,
+            'club' => ['tag' => 'GLOBAL']
+        ];
+
+        $existingPlayer = new Player(
+            new PlayerId($brawlStarsPlayerId),
+            'TestPlayer',
+            new Trophy(1500),
+            'GLOBAL'
         );
 
-        $player = new Player(
-            id: new PlayerId('player456'),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1500),
-            region: 'US'
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
         );
+
+        $this->userRepositoryMock
+            ->expects($this->once())
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
+            ->willReturn($playerData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
-            ->with('player456')
-            ->willReturn($player);
+            ->method('findById')
+            ->with($this->equalTo(new PlayerId($brawlStarsPlayerId)))
+            ->willReturn($existingPlayer);
 
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('findLinkedPlayerId')
-            ->with('user123')
-            ->willReturn('already_linked_player');
+        // Act
+        $result = $this->useCase->execute($userId, $brawlStarsPlayerId);
 
-        $this->userRepositoryMock
-            ->expects($this->never())
-            ->method('linkPlayerToUser');
-
-        // Act & Assert
-        $this->expectException(PlayerAlreadyLinkedToUserException::class);
-        $this->expectExceptionMessage('User already has a linked player');
-
-        $this->useCase->execute($request);
+        // Assert
+        $this->assertInstanceOf(Player::class, $result);
+        $this->assertEquals(1500, $result->getTotalTrophies()->getValue()); // Should be updated
     }
 
     public function testLinkPlayerWithNullNickname(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'player456',
-            nickname: null,
-            region: 'US'
-        );
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'player456';
+        
+        $playerData = [
+            'name' => null, // API returns null
+            'trophies' => 1500,
+            'club' => ['tag' => 'GLOBAL']
+        ];
 
         $player = new Player(
-            id: new PlayerId('player456'),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1500),
-            region: 'US'
+            new PlayerId($brawlStarsPlayerId),
+            'Unknown', // Should use default
+            new Trophy(1500),
+            'GLOBAL'
         );
+
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
+        );
+
+        $this->userRepositoryMock
+            ->expects($this->once())
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
+            ->willReturn($playerData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
-            ->willReturn($player);
-
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('findLinkedPlayerId')
+            ->method('findById')
+            ->with($this->equalTo(new PlayerId($brawlStarsPlayerId)))
             ->willReturn(null);
 
-        $this->userRepositoryMock
+        $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('linkPlayerToUser');
+            ->method('save')
+            ->with($this->isInstanceOf(Player::class));
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute($userId, $brawlStarsPlayerId);
 
         // Assert
-        $this->assertInstanceOf(PlayerResponseDTO::class, $result);
-        $this->assertEquals('player456', $result->id);
-        $this->assertEquals('TestPlayer', $result->nickname); // Should use player's nickname
+        $this->assertInstanceOf(Player::class, $result);
+        $this->assertEquals('Unknown', $result->getNickname()); // Should use default
     }
 
     public function testLinkPlayerWithEmptyNickname(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'player456',
-            nickname: '',
-            region: 'US'
-        );
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'player456';
+        
+        $playerData = [
+            'name' => null, // API returns null
+            'trophies' => 1500,
+            'club' => ['tag' => 'GLOBAL']
+        ];
 
         $player = new Player(
-            id: new PlayerId('player456'),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1500),
-            region: 'US'
+            new PlayerId($brawlStarsPlayerId),
+            'Unknown', // Should use default
+            new Trophy(1500),
+            'GLOBAL'
         );
+
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
+        );
+
+        $this->userRepositoryMock
+            ->expects($this->once())
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
+            ->willReturn($playerData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
-            ->willReturn($player);
-
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('findLinkedPlayerId')
+            ->method('findById')
+            ->with($this->equalTo(new PlayerId($brawlStarsPlayerId)))
             ->willReturn(null);
 
-        $this->userRepositoryMock
+        $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('linkPlayerToUser');
+            ->method('save')
+            ->with($this->isInstanceOf(Player::class));
 
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute($userId, $brawlStarsPlayerId);
 
         // Assert
-        $this->assertInstanceOf(PlayerResponseDTO::class, $result);
-        $this->assertEquals('player456', $result->id);
-        $this->assertEquals('TestPlayer', $result->nickname); // Should use player's nickname
+        $this->assertInstanceOf(Player::class, $result);
+        $this->assertEquals('Unknown', $result->getNickname()); // Should use default
     }
 
     public function testLinkPlayerWithDifferentNickname(): void {
         // Arrange
-        $request = new LinkPlayerRequestDTO(
-            userId: 'user123',
-            brawlStarsId: 'player456',
-            nickname: 'NewNickname',
-            region: 'US'
-        );
+        $userId = Uuid::generate();
+        $brawlStarsPlayerId = 'player456';
+        
+        $playerData = [
+            'name' => 'OriginalName',
+            'trophies' => 1500,
+            'club' => ['tag' => 'GLOBAL']
+        ];
 
         $player = new Player(
-            id: new PlayerId('player456'),
-            nickname: 'TestPlayer',
-            totalTrophies: new Trophy(1500),
-            region: 'US'
+            new PlayerId($brawlStarsPlayerId),
+            'OriginalName',
+            new Trophy(1500),
+            'GLOBAL'
         );
+
+        $user = new User(
+            id: $userId,
+            email: new \App\Domain\ValueObject\Email('test@example.com'),
+            passwordHash: 'hashed_password',
+            nickname: 'TestUser'
+        );
+
+        $this->userRepositoryMock
+            ->expects($this->once())
+            ->method('findById')
+            ->with($this->equalTo($userId))
+            ->willReturn($user);
+
+        $this->brawlStarsServiceMock
+            ->expects($this->once())
+            ->method('getPlayerById')
+            ->with($brawlStarsPlayerId)
+            ->willReturn($playerData);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('findByBrawlStarsId')
+            ->method('findById')
+            ->with($this->equalTo(new PlayerId($brawlStarsPlayerId)))
             ->willReturn($player);
 
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('findLinkedPlayerId')
-            ->willReturn(null);
-
-        $this->userRepositoryMock
-            ->expects($this->once())
-            ->method('linkPlayerToUser');
-
         // Act
-        $result = $this->useCase->execute($request);
+        $result = $this->useCase->execute($userId, $brawlStarsPlayerId);
 
         // Assert
-        $this->assertInstanceOf(PlayerResponseDTO::class, $result);
-        $this->assertEquals('player456', $result->id);
-        $this->assertEquals('NewNickname', $result->nickname); // Should use provided nickname
+        $this->assertInstanceOf(Player::class, $result);
+        $this->assertEquals('OriginalName', $result->getNickname()); // Should use API name
     }
 }

@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
-import { LeaderboardResponse, SearchPlayersRequest, SearchPlayersResponse } from '../types/api.types';
+import { apiService, isMockMode } from './apiConfig';
+import type { LeaderboardResponse, SearchPlayersRequest, SearchPlayersResponse } from '../../types/api.types';
 
 export class LeaderboardService {
   /**
@@ -10,6 +11,32 @@ export class LeaderboardService {
     offset?: number;
     region?: string;
   }): Promise<LeaderboardResponse> {
+    if (isMockMode() && apiService) {
+      try {
+        const result = await apiService.getGlobalLeaderboard(
+          params?.limit || 10, 
+          params?.offset || 0, 
+          params?.region
+        );
+        
+        return {
+          success: true,
+          data: {
+            entries: result.players,
+            total: result.total,
+            page: Math.floor((params?.offset || 0) / (params?.limit || 10)) + 1,
+            limit: params?.limit || 10,
+            hasMore: false
+          }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load leaderboard'
+        };
+      }
+    }
+
     const queryParams = new URLSearchParams();
     
     if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -20,7 +47,18 @@ export class LeaderboardService {
       ? `/leaderboards/global?${queryParams.toString()}`
       : '/leaderboards/global';
 
-    return apiClient.get(url);
+    const response = await apiClient.get(url);
+    return {
+      success: response.success,
+      data: response.data || {
+        entries: [],
+        total: 0,
+        page: 1,
+        limit: params?.limit || 10,
+        hasMore: false
+      },
+      error: response.error
+    };
   }
 
   /**
@@ -42,20 +80,64 @@ export class LeaderboardService {
       ? `/leaderboards/regional/${region}?${queryParams.toString()}`
       : `/leaderboards/regional/${region}`;
 
-    return apiClient.get(url);
+    const response = await apiClient.get(url);
+    return {
+      success: response.success,
+      data: response.data || {
+        entries: [],
+        total: 0,
+        page: 1,
+        limit: params?.limit || 10,
+        hasMore: false
+      },
+      error: response.error
+    };
   }
 
   /**
    * Search players
    */
   async searchPlayers(params: SearchPlayersRequest): Promise<SearchPlayersResponse> {
+    if (isMockMode() && apiService) {
+      try {
+        const result = await apiService.searchPlayers(params.q, params.limit || 10);
+        
+        return {
+          success: true,
+          data: {
+            players: result.map((player: any) => ({
+              id: player.playerId,
+              nickname: player.nickname,
+              totalTrophies: player.totalTrophies,
+              region: player.region,
+              level: player.level
+            })),
+            total: result.length
+          }
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to search players'
+        };
+      }
+    }
+
     const queryParams = new URLSearchParams();
     
     queryParams.append('q', params.q);
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
 
-    return apiClient.get(`/players/search?${queryParams.toString()}`);
+    const response = await apiClient.get(`/players/search?${queryParams.toString()}`);
+    return {
+      success: response.success,
+      data: response.data || {
+        players: [],
+        total: 0
+      },
+      error: response.error
+    };
   }
 
   /**
@@ -109,14 +191,22 @@ export class LeaderboardService {
    * Get available regions
    */
   async getRegions(): Promise<{ success: boolean; data: string[] }> {
-    return apiClient.get('/regions');
+    const result = await apiClient.get('/regions');
+    return {
+      success: result.success,
+      data: result.data || []
+    };
   }
 
   /**
    * Get available seasons
    */
   async getSeasons(): Promise<{ success: boolean; data: any[] }> {
-    return apiClient.get('/seasons');
+    const result = await apiClient.get('/seasons');
+    return {
+      success: result.success,
+      data: result.data || []
+    };
   }
 
   /**
@@ -140,21 +230,18 @@ export class LeaderboardService {
       ? `/leaderboards/season/${seasonId}?${queryParams.toString()}`
       : `/leaderboards/season/${seasonId}`;
 
-    return apiClient.get(url);
-  }
-
-  /**
-   * Cache management helpers
-   */
-  private cacheKey(type: string, params: Record<string, any> = {}): string {
-    const sortedParams = Object.keys(params)
-      .sort()
-      .reduce((result, key) => {
-        result[key] = params[key];
-        return result;
-      }, {} as Record<string, any>);
-
-    return `leaderboard_${type}_${JSON.stringify(sortedParams)}`;
+    const response = await apiClient.get(url);
+    return {
+      success: response.success,
+      data: response.data || {
+        entries: [],
+        total: 0,
+        page: 1,
+        limit: params?.limit || 10,
+        hasMore: false
+      },
+      error: response.error
+    };
   }
 
   /**

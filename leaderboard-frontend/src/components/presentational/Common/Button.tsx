@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '../../utils/cn';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline';
@@ -32,15 +31,16 @@ const Button: React.FC<ButtonProps> = ({
     lg: 'px-6 py-3 text-base',
   };
 
-  const classes = cn(
+  const classes = [
     baseClasses,
     variants[variant],
     sizes[size],
     className
-  );
+  ].filter(Boolean).join(' ');
 
   return (
     <button
+      type="button"
       className={classes}
       disabled={disabled || loading}
       {...props}

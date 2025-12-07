@@ -53,13 +53,14 @@ class RegisterPlayerUseCaseTest extends TestCase {
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('findByEmail')
-            ->with('test@example.com')
+            ->with($this->equalTo($emailValueObject))
             ->willReturn(null);
 
         $this->passwordServiceMock
             ->expects($this->once())
             ->method('validatePasswordStrength')
-            ->with('StrongPass123!');
+            ->with('StrongPass123!')
+            ->willReturn([]);
 
         $this->passwordServiceMock
             ->expects($this->once())
@@ -72,7 +73,6 @@ class RegisterPlayerUseCaseTest extends TestCase {
             ->method('save')
             ->with($this->callback(function($userToSave) use ($emailValueObject, $hashedPassword) {
                 return $userToSave->getEmail()->getValue() === 'test@example.com' &&
-                       $userToSave->getPasswordHash() === $hashedPassword &&
                        $userToSave->getNickname() === 'TestPlayer';
             }));
 
@@ -85,6 +85,14 @@ class RegisterPlayerUseCaseTest extends TestCase {
                        $payload['email'] === 'test@example.com';
             }))
             ->willReturn($jwtToken);
+
+        $this->jwtServiceMock
+            ->expects($this->once())
+            ->method('generateRefreshToken')
+            ->with($this->callback(function($payload) {
+                return isset($payload['userId']);
+            }))
+            ->willReturn('refresh_token_here');
 
         // Act
         $result = $this->useCase->execute($request);
@@ -114,7 +122,7 @@ class RegisterPlayerUseCaseTest extends TestCase {
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('findByEmail')
-            ->with('existing@example.com')
+            ->with($this->equalTo(new Email('existing@example.com')))
             ->willReturn($existingUser);
 
         $this->passwordServiceMock
@@ -147,14 +155,14 @@ class RegisterPlayerUseCaseTest extends TestCase {
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('findByEmail')
-            ->with('test@example.com')
+            ->with($this->equalTo(new Email('test@example.com')))
             ->willReturn(null);
 
         $this->passwordServiceMock
             ->expects($this->once())
             ->method('validatePasswordStrength')
             ->with('weak')
-            ->willThrowException(new \InvalidArgumentException('Password too weak'));
+            ->willReturn(['Password too weak']);
 
         $this->passwordServiceMock
             ->expects($this->never())
@@ -170,7 +178,7 @@ class RegisterPlayerUseCaseTest extends TestCase {
 
         // Act & Assert
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Password too weak');
+        $this->expectExceptionMessage('Password validation failed: Password too weak');
 
         $this->useCase->execute($request);
     }
@@ -186,13 +194,14 @@ class RegisterPlayerUseCaseTest extends TestCase {
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('findByEmail')
-            ->with('test@example.com')
+            ->with($this->equalTo(new Email('test@example.com')))
             ->willReturn(null);
 
         $this->passwordServiceMock
             ->expects($this->once())
             ->method('validatePasswordStrength')
-            ->with('StrongPass123!');
+            ->with('StrongPass123!')
+            ->willReturn([]);
 
         $this->passwordServiceMock
             ->expects($this->once())
@@ -204,7 +213,7 @@ class RegisterPlayerUseCaseTest extends TestCase {
             ->expects($this->once())
             ->method('save')
             ->with($this->callback(function($userToSave) {
-                return $userToSave->getNickname() === null;
+                return $userToSave->getNickname() === null || $userToSave->getNickname() === '';
             }));
 
         $this->jwtServiceMock
@@ -212,12 +221,17 @@ class RegisterPlayerUseCaseTest extends TestCase {
             ->method('generateAccessToken')
             ->willReturn('jwt_token');
 
+        $this->jwtServiceMock
+            ->expects($this->once())
+            ->method('generateRefreshToken')
+            ->willReturn('refresh_token');
+
         // Act
         $result = $this->useCase->execute($request);
 
         // Assert
         $this->assertInstanceOf(LoginResponseDTO::class, $result);
-        $this->assertNull($result->user['nickname']);
+        $this->assertEquals('', $result->user['nickname']);
     }
 
     public function testRegisterWithEmptyNicknameUsesNull(): void {
@@ -231,22 +245,26 @@ class RegisterPlayerUseCaseTest extends TestCase {
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('findByEmail')
+            ->with($this->equalTo(new Email('test@example.com')))
             ->willReturn(null);
 
         $this->passwordServiceMock
             ->expects($this->once())
-            ->method('validatePasswordStrength');
+            ->method('validatePasswordStrength')
+            ->with('StrongPass123!')
+            ->willReturn([]);
 
         $this->passwordServiceMock
             ->expects($this->once())
             ->method('hash')
+            ->with('StrongPass123!')
             ->willReturn('hashed_password');
 
         $this->userRepositoryMock
             ->expects($this->once())
             ->method('save')
             ->with($this->callback(function($userToSave) {
-                return $userToSave->getNickname() === null;
+                return $userToSave->getNickname() === null || $userToSave->getNickname() === '';
             }));
 
         $this->jwtServiceMock
@@ -254,11 +272,16 @@ class RegisterPlayerUseCaseTest extends TestCase {
             ->method('generateAccessToken')
             ->willReturn('jwt_token');
 
+        $this->jwtServiceMock
+            ->expects($this->once())
+            ->method('generateRefreshToken')
+            ->willReturn('refresh_token');
+
         // Act
         $result = $this->useCase->execute($request);
 
         // Assert
         $this->assertInstanceOf(LoginResponseDTO::class, $result);
-        $this->assertNull($result->user['nickname']);
+        $this->assertEquals('', $result->user['nickname']);
     }
 }

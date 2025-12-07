@@ -1,11 +1,23 @@
 import apiClient from './apiClient';
-import { LoginRequest, LoginResponse, RegisterRequest, ApiResponse } from '../types/api.types';
+import { apiService, isMockMode } from './apiConfig';
+import type { LoginRequest, LoginResponse, RegisterRequest, ApiResponse } from '../../types/api.types';
 
 export class AuthService {
   /**
    * Register a new user
    */
   async register(data: RegisterRequest): Promise<ApiResponse<LoginResponse['data']>> {
+    if (isMockMode() && apiService) {
+      try {
+        const result = await apiService.register(data.email, data.password, data.nickname);
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Registration failed'
+        };
+      }
+    }
     return apiClient.post<LoginResponse['data']>('/auth/register', data);
   }
 
@@ -13,6 +25,24 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginRequest): Promise<ApiResponse<LoginResponse['data']>> {
+    if (isMockMode() && apiService) {
+      try {
+        const result = await apiService.login(data.email, data.password);
+        
+        // Store tokens in localStorage if login successful
+        localStorage.setItem('accessToken', result.accessToken);
+        localStorage.setItem('refreshToken', result.refreshToken);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        
+        return { success: true, data: result };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Login failed'
+        };
+      }
+    }
+    
     const response = await apiClient.post<LoginResponse['data']>('/auth/login', data);
     
     // Store tokens in localStorage if login successful
@@ -46,6 +76,29 @@ export class AuthService {
    * Refresh access token
    */
   async refreshToken(): Promise<ApiResponse<{ accessToken: string; refreshToken?: string }>> {
+    if (isMockMode() && apiService) {
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+        
+        const result = await apiService.refreshToken(refreshToken);
+        
+        // Update tokens in localStorage if refresh successful
+        localStorage.setItem('accessToken', result.accessToken);
+        localStorage.setItem('refreshToken', result.refreshToken);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        
+        return { success: true, data: { accessToken: result.accessToken, refreshToken: result.refreshToken } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Token refresh failed'
+        };
+      }
+    }
+
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) {
       throw new Error('No refresh token available');
