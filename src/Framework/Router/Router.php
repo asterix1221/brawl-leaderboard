@@ -3,28 +3,44 @@ namespace App\Framework\Router;
 
 use App\Framework\Container\DIContainer;
 use App\Framework\HTTP\Request;
-use App\Framework\HTTP\JsonResponse;
 use App\Framework\HTTP\ErrorResponse;
+use App\Infrastructure\Middleware\RateLimitMiddleware;
 
 class Router {
     private array $routes = [];
 
     public function __construct(private DIContainer $container) {}
 
-    public function get(string $path, string $controller, string $method): void {
-        $this->routes['GET'][$path] = ['controller' => $controller, 'method' => $method];
+    public function get(string $path, string $controller, string $method, array $middleware = []): void {
+        $this->routes['GET'][$path] = [
+            'controller' => $controller,
+            'method' => $method,
+            'middleware' => $middleware
+        ];
     }
 
-    public function post(string $path, string $controller, string $method): void {
-        $this->routes['POST'][$path] = ['controller' => $controller, 'method' => $method];
+    public function post(string $path, string $controller, string $method, array $middleware = []): void {
+        $this->routes['POST'][$path] = [
+            'controller' => $controller,
+            'method' => $method,
+            'middleware' => $middleware
+        ];
     }
 
-    public function put(string $path, string $controller, string $method): void {
-        $this->routes['PUT'][$path] = ['controller' => $controller, 'method' => $method];
+    public function put(string $path, string $controller, string $method, array $middleware = []): void {
+        $this->routes['PUT'][$path] = [
+            'controller' => $controller,
+            'method' => $method,
+            'middleware' => $middleware
+        ];
     }
 
-    public function delete(string $path, string $controller, string $method): void {
-        $this->routes['DELETE'][$path] = ['controller' => $controller, 'method' => $method];
+    public function delete(string $path, string $controller, string $method, array $middleware = []): void {
+        $this->routes['DELETE'][$path] = [
+            'controller' => $controller,
+            'method' => $method,
+            'middleware' => $middleware
+        ];
     }
 
     public function dispatch(string $method, string $path, Request $request): string {
@@ -51,6 +67,20 @@ class Router {
     }
 
     private function executeRoute(array $route, Request $request, array $params): string {
+        $middlewareError = $this->runMiddleware($route['middleware'] ?? [], $request);
+        if ($middlewareError !== null) {
+            return (string)$middlewareError;
+        }
+
+        if ($this->container->has(RateLimitMiddleware::class)) {
+            /** @var RateLimitMiddleware $rateLimitMiddleware */
+            $rateLimitMiddleware = $this->container->get(RateLimitMiddleware::class);
+            $rateLimitError = $rateLimitMiddleware->handle($request);
+            if ($rateLimitError !== null) {
+                return (string)$rateLimitError;
+            }
+        }
+
         $controllerClass = $route['controller'];
         $methodName = $route['method'];
 
@@ -65,6 +95,40 @@ class Router {
         }
 
         return (string)$result;
+    }
+
+    private function runMiddleware(array $middlewareList, Request $request): ?ErrorResponse {
+        foreach ($middlewareList as $middleware) {
+            $resolved = $this->resolveMiddleware($middleware);
+
+            if (is_callable($resolved)) {
+                $result = $resolved($request);
+            } elseif (method_exists($resolved, 'handle')) {
+                $result = $resolved->handle($request);
+            } else {
+                throw new \RuntimeException('Invalid middleware provided');
+            }
+
+            if ($result instanceof ErrorResponse) {
+                return $result;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveMiddleware($middleware): mixed {
+        if (is_string($middleware)) {
+            if ($this->container->has($middleware)) {
+                return $this->container->get($middleware);
+            }
+
+            if (class_exists($middleware)) {
+                return new $middleware();
+            }
+        }
+
+        return $middleware;
     }
 }
 

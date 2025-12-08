@@ -6,26 +6,9 @@ use App\Framework\HTTP\Request;
 use App\Framework\HTTP\ErrorResponse;
 
 class JWTMiddleware {
-    private array $publicRoutes = [
-        '/api/auth/register',
-        '/api/auth/login',
-        '/api/leaderboards/global',
-        '/api/health',
-        '/api/players/search'
-    ];
-
     public function __construct(private JWTService $jwtService) {}
 
     public function handle(Request $request): ?ErrorResponse {
-        $path = $request->getPath();
-
-        // Allow public routes
-        foreach ($this->publicRoutes as $publicRoute) {
-            if (strpos($path, $publicRoute) === 0) {
-                return null; // Allow
-            }
-        }
-
         // Get token from header
         $authHeader = $request->getHeader('Authorization');
         if (!$authHeader) {
