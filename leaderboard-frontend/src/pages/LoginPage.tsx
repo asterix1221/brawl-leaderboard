@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/store';
-import Button from '../presentational/Common/Button';
-import Input from '../presentational/Common/Input';
+import Button from '../components/presentational/Common/Button';
+import Input from '../components/presentational/Common/Input';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();

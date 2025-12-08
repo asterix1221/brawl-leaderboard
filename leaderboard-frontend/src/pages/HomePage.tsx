@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLeaderboard } from '../store/store';
-import LeaderboardTable from '../presentational/Leaderboard/LeaderboardTable';
-import Button from '../presentational/Common/Button';
+import LeaderboardTable from '../components/presentational/Leaderboard/LeaderboardTable';
+import Button from '../components/presentational/Common/Button';
 
 const HomePage: React.FC = () => {
   const { 
