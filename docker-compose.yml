@@ -38,13 +38,12 @@ services:
 
   php-fpm:
     build:
-      context: ./docker/php-fpm
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/php-fpm/Dockerfile
     container_name: brawl-php-fpm
     volumes:
       - ./src:/var/www/html/src
       - ./public:/var/www/html/public
-      - ./vendor:/var/www/html/vendor
       - ./.env:/var/www/html/.env
     environment:
       DB_HOST: postgres
