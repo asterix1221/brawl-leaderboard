@@ -1,0 +1,17 @@
+@startuml
+actor Player
+participant "Web UI" as Web
+participant "API Backend" as API
+participant "Auth Controller" as Auth
+participant "DB" as DB
+
+Player -> Web: Вводит логин/пароль
+Web -> API: POST /auth/login
+API -> Auth: validateCredentials()
+Auth -> DB: SELECT user by email
+DB --> Auth: user + password_hash
+Auth -> Auth: verify password
+Auth -> API: issue JWT + refresh
+API -> Web: 200 OK + tokens
+Web -> Player: Сохраняет сессию
+@enduml

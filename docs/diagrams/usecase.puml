@@ -1,0 +1,30 @@
+@startuml
+left to right direction
+actor Player
+actor Admin
+actor Guest
+
+rectangle "Brawl Leaderboard" {
+  usecase "Зарегистрироваться/Авторизоваться" as Auth
+  usecase "Просмотреть лидерборд" as ViewBoard
+  usecase "Фильтровать и сортировать" as Filter
+  usecase "Создать/обновить матч" as ManageMatch
+  usecase "Подтвердить результат и обновить очки" as UpdateScore
+  usecase "Экспорт лидерборда через API" as ExportAPI
+}
+
+Guest --> ViewBoard
+Guest --> Filter
+Player --> Auth
+Player --> ViewBoard
+Player --> Filter
+Player --> ExportAPI
+
+Admin --> Auth
+Admin --> ManageMatch
+Admin --> UpdateScore
+Admin --> ExportAPI
+
+ManageMatch --> UpdateScore : включает
+ViewBoard <-- Filter
+@enduml

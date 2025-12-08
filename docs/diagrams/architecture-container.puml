@@ -1,0 +1,21 @@
+@startuml
+!include <C4/C4_Container>
+
+Person(player, "Игрок/гость", "Просматривает лидерборд, подаёт результаты матчей")
+Person(admin, "Администратор", "Валидация матчей, управление сезонами")
+System_Boundary(brawl, "Brawl Leaderboard") {
+  Container(web, "Web UI", "React/TypeScript", "Отображение таблицы, формы входа, фильтры")
+  Container(api, "API Backend", "PHP/Laravel", "REST/GraphQL API, валидация, расчёт рейтинга")
+  ContainerDb(db, "Relational DB", "PostgreSQL/MySQL", "Пользователи, матчи, рейтинг, сезоны")
+  Container(cache, "Cache", "Redis", "Кеш лидерборда, rate limiting")
+  Container(queue, "Queue/Workers", "Redis + Horizon", "Отложенный пересчёт рейтинга, уведомления")
+}
+
+Rel(player, web, "HTTP/HTTPS")
+Rel(admin, web, "HTTP/HTTPS")
+Rel(web, api, "REST/GraphQL")
+Rel(api, db, "SQL")
+Rel(api, cache, "кеширование лидерборда")
+Rel(api, queue, "постановка задач")
+Rel(queue, db, "запись результатов")
+@enduml

@@ -274,6 +274,12 @@ docker-compose -f docker-compose.prod.yml up -d
 4. Проверить код (`composer cs-check`, `npm test`)
 5. Создать Pull Request
 
+## 🗂️ Документация
+
+- Аналитический обзор и требования: [docs/overview.md](./docs/overview.md)
+- Диаграммы (Use-Case, архитектура, ER, последовательности): [docs/diagrams](./docs/diagrams)
+- Черновик презентации: [docs/presentation.md](./docs/presentation.md)
+
 ## 📄 Лицензия
 
 MIT License - см. файл LICENSE

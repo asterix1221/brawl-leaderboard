@@ -1,0 +1,51 @@
+@startuml
+entity User {
+  *id : bigint
+  --
+  nickname : varchar
+  email : varchar
+  password_hash : varchar
+  role : enum(player, admin)
+  created_at : datetime
+}
+
+entity Season {
+  *id : bigint
+  name : varchar
+  started_at : datetime
+  ended_at : datetime
+}
+
+entity Match {
+  *id : bigint
+  season_id : bigint
+  reported_by : bigint
+  mode : varchar
+  status : enum(pending, approved, rejected)
+  played_at : datetime
+}
+
+entity MatchResult {
+  *id : bigint
+  match_id : bigint
+  user_id : bigint
+  score_delta : int
+  placement : int
+}
+
+entity RatingSnapshot {
+  *id : bigint
+  user_id : bigint
+  season_id : bigint
+  rating : int
+  rank : int
+  calculated_at : datetime
+}
+
+User ||--o{ Match : "reports"
+User ||--o{ MatchResult : "plays"
+Season ||--o{ Match
+Match ||--o{ MatchResult
+User ||--o{ RatingSnapshot
+Season ||--o{ RatingSnapshot
+@enduml
