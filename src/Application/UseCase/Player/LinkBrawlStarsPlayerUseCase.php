@@ -44,7 +44,8 @@ class LinkBrawlStarsPlayerUseCase {
         } else {
             $existingPlayer->updateFromSync(
                 $apiData['trophies'] ?? 0,
-                isset($apiData['club']['tag']) ? $apiData['club']['tag'] : 'GLOBAL'
+                isset($apiData['club']['tag']) ? $apiData['club']['tag'] : 'GLOBAL',
+                $apiData['name'] ?? null
             );
             $player = $existingPlayer;
         }
