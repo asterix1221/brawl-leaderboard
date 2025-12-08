@@ -4,22 +4,39 @@ namespace Tests\Unit\Application\UseCase\Leaderboard;
 use PHPUnit\Framework\TestCase;
 use App\Application\UseCase\Leaderboard\GetGlobalLeaderboardUseCase;
 use App\Application\Service\CacheService;
-use App\Domain\Repository\PlayerRepositoryInterface;
 use App\Domain\Entity\Player;
+use App\Domain\Entity\Score;
+use App\Domain\Entity\Season;
+use App\Domain\Repository\PlayerRepositoryInterface;
+use App\Domain\Repository\ScoreRepositoryInterface;
+use App\Domain\Repository\SeasonRepositoryInterface;
 use App\Domain\ValueObject\PlayerId;
 use App\Domain\ValueObject\Trophy;
+use App\Domain\ValueObject\Uuid;
 
 class GetGlobalLeaderboardUseCaseTest extends TestCase {
     private GetGlobalLeaderboardUseCase $useCase;
+    private Season $activeSeason;
     private $playerRepositoryMock;
+    private $scoreRepositoryMock;
+    private $seasonRepositoryMock;
     private $cacheServiceMock;
 
     protected function setUp(): void {
         $this->playerRepositoryMock = $this->createMock(PlayerRepositoryInterface::class);
+        $this->scoreRepositoryMock = $this->createMock(ScoreRepositoryInterface::class);
+        $this->seasonRepositoryMock = $this->createMock(SeasonRepositoryInterface::class);
         $this->cacheServiceMock = $this->createMock(CacheService::class);
+        $this->activeSeason = $this->createActiveSeason();
+
+        $this->seasonRepositoryMock
+            ->method('findActive')
+            ->willReturn($this->activeSeason);
 
         $this->useCase = new GetGlobalLeaderboardUseCase(
             $this->playerRepositoryMock,
+            $this->scoreRepositoryMock,
+            $this->seasonRepositoryMock,
             $this->cacheServiceMock
         );
     }
@@ -40,21 +57,36 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             region: 'US'
         );
 
+        $seasonId = $this->activeSeason->getId();
+        $scores = [
+            new Score(new Uuid('00000000-0000-0000-0000-000000000001'), $player1->getId(), $seasonId, 3200),
+            new Score(new Uuid('00000000-0000-0000-0000-000000000002'), $player2->getId(), $seasonId, 2700),
+        ];
+
         $this->cacheServiceMock
             ->expects($this->once())
             ->method('get')
             ->willReturn(null);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('findTopByTrophies')
-            ->with(10, 0)
-            ->willReturn([$player1, $player2]);
+            ->method('findTopByRegionAndSeason')
+            ->with(null, $seasonId, 10, 0)
+            ->willReturn($scores);
+
+        $this->scoreRepositoryMock
+            ->expects($this->once())
+            ->method('countBySeason')
+            ->with($seasonId, null)
+            ->willReturn(2);
 
         $this->playerRepositoryMock
-            ->expects($this->once())
-            ->method('countAll')
-            ->willReturn(2);
+            ->expects($this->exactly(2))
+            ->method('findById')
+            ->willReturnMap([
+                [$player1->getId(), $player1],
+                [$player2->getId(), $player2],
+            ]);
 
         $this->cacheServiceMock
             ->expects($this->once())
@@ -86,20 +118,23 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
 
     public function testGetGlobalLeaderboardWithEmptyResult(): void {
         // Arrange
+        $seasonId = $this->activeSeason->getId();
+
         $this->cacheServiceMock
             ->expects($this->once())
             ->method('get')
             ->willReturn(null);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('findTopByTrophies')
-            ->with(10, 0)
+            ->method('findTopByRegionAndSeason')
+            ->with(null, $seasonId, 10, 0)
             ->willReturn([]);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('countAll')
+            ->method('countBySeason')
+            ->with($seasonId, null)
             ->willReturn(0);
 
         // Act
@@ -127,9 +162,9 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             ->method('get')
             ->willReturn($cachedData);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->never())
-            ->method('findTopByTrophies');
+            ->method('findTopByRegionAndSeason');
 
         // Act
         $result = $this->useCase->execute(10, 0);
@@ -149,21 +184,31 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             region: 'US'
         );
 
+        $seasonId = $this->activeSeason->getId();
+        $scores = [new Score(new Uuid('00000000-0000-0000-0000-000000000003'), $player->getId(), $seasonId, 2100)];
+
         $this->cacheServiceMock
             ->expects($this->once())
             ->method('get')
             ->willReturn(null);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('findTopByTrophies')
-            ->with(5, 10)
-            ->willReturn([$player]);
+            ->method('findTopByRegionAndSeason')
+            ->with(null, $seasonId, 5, 10)
+            ->willReturn($scores);
+
+        $this->scoreRepositoryMock
+            ->expects($this->once())
+            ->method('countBySeason')
+            ->with($seasonId, null)
+            ->willReturn(100);
 
         $this->playerRepositoryMock
             ->expects($this->once())
-            ->method('countAll')
-            ->willReturn(100);
+            ->method('findById')
+            ->with($player->getId())
+            ->willReturn($player);
 
         // Act
         $result = $this->useCase->execute(5, 10);
@@ -178,20 +223,23 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
 
     public function testGetGlobalLeaderboardLimitsCappedAt500(): void {
         // Arrange
+        $seasonId = $this->activeSeason->getId();
+
         $this->cacheServiceMock
             ->expects($this->once())
             ->method('get')
             ->willReturn(null);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('findTopByTrophies')
-            ->with(500, 0) // Should be capped at 500
+            ->method('findTopByRegionAndSeason')
+            ->with(null, $seasonId, 500, 0) // Should be capped at 500
             ->willReturn([]);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('countAll')
+            ->method('countBySeason')
+            ->with($seasonId, null)
             ->willReturn(0);
 
         // Act
@@ -204,7 +252,7 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
     public function testGetGlobalLeaderboardWithDifferentTrophyLevels(): void {
         // Arrange
         $players = [];
-        $expectedLevels = [1, 2, 3, 4];
+        $expectedLevels = [2, 3, 3, 4];
         $expectedTrophies = [500, 1500, 2500, 4000];
 
         for ($i = 0; $i < 4; $i++) {
@@ -216,20 +264,34 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             );
         }
 
+        $seasonId = $this->activeSeason->getId();
+        $scores = [
+            new Score(new Uuid('00000000-0000-0000-0000-000000000008'), $players[0]->getId(), $seasonId, 500),
+            new Score(new Uuid('00000000-0000-0000-0000-000000000009'), $players[1]->getId(), $seasonId, 1500),
+            new Score(new Uuid('00000000-0000-0000-0000-00000000000a'), $players[2]->getId(), $seasonId, 2500),
+            new Score(new Uuid('00000000-0000-0000-0000-00000000000b'), $players[3]->getId(), $seasonId, 4000),
+        ];
+
         $this->cacheServiceMock
             ->expects($this->once())
             ->method('get')
             ->willReturn(null);
 
-        $this->playerRepositoryMock
+        $this->scoreRepositoryMock
             ->expects($this->once())
-            ->method('findTopByTrophies')
-            ->willReturn($players);
+            ->method('findTopByRegionAndSeason')
+            ->willReturn($scores);
+
+        $this->scoreRepositoryMock
+            ->expects($this->once())
+            ->method('countBySeason')
+            ->with($seasonId, null)
+            ->willReturn(4);
 
         $this->playerRepositoryMock
-            ->expects($this->once())
-            ->method('countAll')
-            ->willReturn(4);
+            ->expects($this->exactly(4))
+            ->method('findById')
+            ->willReturnMap(array_map(fn($p) => [$p->getId(), $p], $players));
 
         // Act
         $result = $this->useCase->execute(10, 0);
@@ -243,5 +305,15 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             $this->assertEquals($expectedLevels[$i], $playerData['level']);
             $this->assertEquals($expectedTrophies[$i], $playerData['totalTrophies']);
         }
+    }
+
+    private function createActiveSeason(): Season {
+        return new Season(
+            new Uuid('11111111-1111-1111-1111-111111111111'),
+            'Active Season',
+            new \DateTime('-1 week'),
+            new \DateTime('+1 week'),
+            true
+        );
     }
 }

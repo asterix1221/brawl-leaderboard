@@ -173,6 +173,8 @@ class SyncBrawlStarsDataUseCaseTest extends TestCase {
             ->expects($this->once())
             ->method('flush');
 
+        $this->expectOutputRegex('/Error syncing player: Database error/');
+
         // Act
         $result = $this->useCase->execute();
 
