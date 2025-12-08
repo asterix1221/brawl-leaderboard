@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeaderboard } from '../store/store';
-import Button from '../presentational/Common/Button';
-import Input from '../presentational/Common/Input';
+import Button from '../components/presentational/Common/Button';
+import Input from '../components/presentational/Common/Input';
 
 const SearchPage: React.FC = () => {
   const { 
