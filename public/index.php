@@ -79,6 +79,12 @@ $container->set(\App\Application\Service\RateLimitService::class, function($cont
     return new \App\Application\Service\RateLimitService($container->get('redis'));
 });
 
+$container->set(\App\Infrastructure\Middleware\RateLimitMiddleware::class, function($container) {
+    return new \App\Infrastructure\Middleware\RateLimitMiddleware(
+        $container->get(\App\Application\Service\RateLimitService::class)
+    );
+});
+
 $container->set(\App\Application\Service\BrawlStarsService::class, function() {
     return new \App\Application\Service\BrawlStarsService($_ENV['BRAWL_STARS_API_KEY'] ?? 'changeme');
 });
@@ -228,16 +234,6 @@ try {
     );
     $corsResponse = $corsMiddleware->handle($request);
     if ($corsResponse !== null) {
-        exit;
-    }
-
-    // Apply rate limiting
-    $rateLimitMiddleware = new \App\Infrastructure\Middleware\RateLimitMiddleware(
-        $container->get(\App\Application\Service\RateLimitService::class)
-    );
-    $rateLimitError = $rateLimitMiddleware->handle($request);
-    if ($rateLimitError !== null) {
-        echo (string)$rateLimitError;
         exit;
     }
 

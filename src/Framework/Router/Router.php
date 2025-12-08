@@ -4,6 +4,7 @@ namespace App\Framework\Router;
 use App\Framework\Container\DIContainer;
 use App\Framework\HTTP\Request;
 use App\Framework\HTTP\ErrorResponse;
+use App\Infrastructure\Middleware\RateLimitMiddleware;
 
 class Router {
     private array $routes = [];
@@ -69,6 +70,15 @@ class Router {
         $middlewareError = $this->runMiddleware($route['middleware'] ?? [], $request);
         if ($middlewareError !== null) {
             return (string)$middlewareError;
+        }
+
+        if ($this->container->has(RateLimitMiddleware::class)) {
+            /** @var RateLimitMiddleware $rateLimitMiddleware */
+            $rateLimitMiddleware = $this->container->get(RateLimitMiddleware::class);
+            $rateLimitError = $rateLimitMiddleware->handle($request);
+            if ($rateLimitError !== null) {
+                return (string)$rateLimitError;
+            }
         }
 
         $controllerClass = $route['controller'];
