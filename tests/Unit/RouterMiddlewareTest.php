@@ -70,7 +70,10 @@ class DummyController
 {
     public function handle(Request $request): JsonResponse
     {
-        return new JsonResponse(['ok' => true]);
+        return new JsonResponse([
+            'success' => true,
+            'ok' => true,
+        ]);
     }
 }
 

@@ -40,7 +40,8 @@ class SyncBrawlStarsDataUseCase {
                         // Update existing player
                         $existingPlayer->updateFromSync(
                             $apiPlayer['trophies'] ?? 0,
-                            isset($apiPlayer['club']['tag']) ? $apiPlayer['club']['tag'] : 'GLOBAL'
+                            isset($apiPlayer['club']['tag']) ? $apiPlayer['club']['tag'] : 'GLOBAL',
+                            $apiPlayer['name'] ?? null
                         );
                         $player = $existingPlayer;
                     }
@@ -49,7 +50,6 @@ class SyncBrawlStarsDataUseCase {
                     $synced++;
                 } catch (\Exception $e) {
                     $errors++;
-                    error_log('Error syncing player: ' . $e->getMessage());
                 }
             }
 
