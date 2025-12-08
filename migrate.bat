@@ -12,6 +12,14 @@ if errorlevel 1 (
 )
 echo ✅ PostgreSQL is ready!
 
+echo 🔐 Ensuring pgcrypto extension is installed...
+docker exec brawl-postgres psql -U postgres -d brawl_stars -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+if errorlevel 1 (
+    echo ❌ Failed to create pgcrypto extension
+    pause
+    exit /b 1
+)
+
 REM Apply migrations in order
 echo 📋 Applying migrations...
 

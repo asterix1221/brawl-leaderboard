@@ -14,6 +14,14 @@ done
 
 echo "✅ PostgreSQL is ready!"
 
+# Ensure pgcrypto extension is available before applying migrations
+echo "🔐 Ensuring pgcrypto extension is installed..."
+docker exec brawl-postgres psql -U postgres -d brawl_stars -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to create pgcrypto extension"
+    exit 1
+fi
+
 # Apply migrations in order
 echo "📋 Applying migrations..."
 
