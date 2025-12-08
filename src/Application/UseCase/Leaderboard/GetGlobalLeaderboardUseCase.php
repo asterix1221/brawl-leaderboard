@@ -4,24 +4,44 @@ namespace App\Application\UseCase\Leaderboard;
 use App\Application\DTO\LeaderboardEntryDTO;
 use App\Application\Service\CacheService;
 use App\Domain\Repository\PlayerRepositoryInterface;
+use App\Domain\Repository\ScoreRepositoryInterface;
+use App\Domain\Repository\SeasonRepositoryInterface;
+use App\Domain\ValueObject\Uuid;
 
 class GetGlobalLeaderboardUseCase {
     public function __construct(
         private PlayerRepositoryInterface $playerRepository,
+        private ScoreRepositoryInterface $scoreRepository,
+        private SeasonRepositoryInterface $seasonRepository,
         private CacheService $cacheService
     ) {}
 
     public function execute(
         int $limit = 100,
         int $offset = 0,
-        ?string $region = null
+        ?string $region = null,
+        ?string $seasonId = null
     ): array {
         // Validate input
         $limit = min($limit, 500);
         $offset = max(0, $offset);
 
+        // Resolve season
+        $seasonUuid = null;
+        if ($seasonId !== null) {
+            $seasonUuid = new Uuid($seasonId);
+        } else {
+            $activeSeason = $this->seasonRepository->findActive();
+            if ($activeSeason !== null) {
+                $seasonUuid = $activeSeason->getId();
+            } else {
+                throw new \InvalidArgumentException('Season is required when no active season exists');
+            }
+        }
+
         // Generate cache key
-        $cacheKey = 'leaderboard:' . ($region ?? 'global') . ":{$offset}:{$limit}";
+        $seasonKey = $seasonUuid?->getValue() ?? 'all';
+        $cacheKey = 'leaderboard:' . ($region ?? 'global') . ":{$seasonKey}:{$offset}:{$limit}";
 
         // Try Redis cache first
         try {
@@ -35,16 +55,23 @@ class GetGlobalLeaderboardUseCase {
         }
 
         // Fetch from database
-        $players = $this->playerRepository->findTopByTrophies($limit, $offset);
-        $total = $this->playerRepository->countAll();
+        $scores = $this->scoreRepository->findTopByRegionAndSeason($region, $seasonUuid, $limit, $offset);
+        $total = $this->scoreRepository->countBySeason($seasonUuid, $region);
 
         $entries = [];
-        foreach ($players as $idx => $player) {
+        foreach ($scores as $idx => $score) {
+            $player = $this->playerRepository->findById($score->getPlayerId());
+
+            if ($player === null) {
+                continue;
+            }
+
             $entries[] = new LeaderboardEntryDTO(
                 rank: $offset + $idx + 1,
                 playerId: $player->getId()->getValue(),
                 nickname: $player->getNickname(),
                 totalTrophies: $player->getTotalTrophies()->getValue(),
+                totalScore: $score->getTotalScore(),
                 region: $player->getRegion(),
                 level: $player->getLevel()
             );
@@ -54,7 +81,8 @@ class GetGlobalLeaderboardUseCase {
             'entries' => array_map(fn($e) => $e->toArray(), $entries),
             'total' => $total,
             'hasMore' => $offset + $limit < $total,
-            'page' => intval($offset / $limit) + 1
+            'page' => intval($offset / $limit) + 1,
+            'seasonId' => $seasonUuid?->getValue()
         ];
 
         // Cache for 5 minutes

@@ -7,6 +7,7 @@ class LeaderboardEntryDTO {
         public readonly string $playerId,
         public readonly string $nickname,
         public readonly int $totalTrophies,
+        public readonly int $totalScore,
         public readonly string $region,
         public readonly int $level
     ) {}
@@ -17,6 +18,7 @@ class LeaderboardEntryDTO {
             'playerId' => $this->playerId,
             'nickname' => $this->nickname,
             'totalTrophies' => $this->totalTrophies,
+            'totalScore' => $this->totalScore,
             'region' => $this->region,
             'level' => $this->level
         ];

@@ -18,8 +18,9 @@ class LeaderboardController {
             $limit = min((int)$request->getQuery('limit', 100), 500);
             $offset = max(0, (int)$request->getQuery('offset', 0));
             $region = $request->getQuery('region');
+            $season = $request->getQuery('seasonId', $request->getQuery('season'));
 
-            $result = $this->getGlobalLeaderboardUseCase->execute($limit, $offset, $region);
+            $result = $this->getGlobalLeaderboardUseCase->execute($limit, $offset, $region, $season);
 
             return new JsonResponse([
                 'success' => true,

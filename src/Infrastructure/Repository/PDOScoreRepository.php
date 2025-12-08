@@ -47,31 +47,70 @@ class PDOScoreRepository implements ScoreRepositoryInterface {
         return array_map(fn($row) => $this->mapToEntity($row), $rows);
     }
 
-    public function findTopByRegion(?string $region, int $limit = 50, int $offset = 0): array {
+    public function findTopByRegionAndSeason(?string $region, ?Uuid $seasonId, int $limit = 50, int $offset = 0): array {
         $sql = 'SELECT s.* FROM scores s
                 JOIN players p ON s.player_id = p.id';
-        
+
         $params = [];
-        
+        $conditions = [];
+
         if ($region !== null) {
-            $sql .= ' WHERE p.region = :region';
+            $conditions[] = 'p.region = :region';
             $params[':region'] = $region;
         }
-        
-        $sql .= ' ORDER BY s.total_score DESC LIMIT :limit OFFSET :offset';
-        
+
+        if ($seasonId !== null) {
+            $conditions[] = 's.season_id = :season_id';
+            $params[':season_id'] = $seasonId->getValue();
+        }
+
+        if (!empty($conditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+
+        $sql .= ' ORDER BY s.total_score DESC, s.wins DESC LIMIT :limit OFFSET :offset';
+
         $stmt = $this->pdo->prepare($sql);
-        
+
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        
+
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return array_map(fn($row) => $this->mapToEntity($row), $rows);
+    }
+
+    public function countBySeason(?Uuid $seasonId, ?string $region = null): int {
+        $sql = 'SELECT COUNT(*) as count FROM scores s JOIN players p ON s.player_id = p.id';
+        $params = [];
+        $conditions = [];
+
+        if ($region !== null) {
+            $conditions[] = 'p.region = :region';
+            $params[':region'] = $region;
+        }
+
+        if ($seasonId !== null) {
+            $conditions[] = 's.season_id = :season_id';
+            $params[':season_id'] = $seasonId->getValue();
+        }
+
+        if (!empty($conditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)($row['count'] ?? 0);
     }
 
     public function save(Score $score): void {
