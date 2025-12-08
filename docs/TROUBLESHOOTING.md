@@ -55,6 +55,30 @@
   docker-compose -f docker-compose.prod.yml restart nginx
   ```
 
+### `/api/health` returns 404
+- Make sure nginx is using the custom config from the repo. The compose file mounts
+  `./docker/nginx/nginx.conf` into the container, so verify it inside the running
+  container:
+  ```bash
+  docker compose exec nginx cat /etc/nginx/conf.d/default.conf
+  ```
+  The `/api` block must contain `try_files $uri /index.php$is_args$args;` so that
+  requests are forwarded to PHP instead of being treated as static files.
+- If the config looks correct, reload nginx to apply any recent changes:
+  ```bash
+  docker compose exec nginx nginx -s reload
+  ```
+- Ensure PHP-FPM is reachable from nginx. A quick check is to hit the PHP status
+  page from inside the nginx container:
+  ```bash
+  docker compose exec nginx wget -qO- http://php-fpm:9000
+  ```
+  If this fails, restart both containers so the fastcgi upstream resolves
+  properly:
+  ```bash
+  docker compose restart nginx php-fpm
+  ```
+
 ## Health checks
 - API health endpoint: `curl http://localhost/api/health`
 - Database readiness (from host): `pg_isready -h localhost -p 5432 -U postgres`
