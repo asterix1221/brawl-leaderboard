@@ -221,12 +221,18 @@ VITE_APP_NAME=Brawl Stars Leaderboard
 ## 🧪 Тестирование
 
 ### Backend Tests
+- **Unit**: кейсы для сервисов и use case сценариев (авторизация, глобальный лидерборд, привязка игрока)
+- **Integration**: контроллеры/роутер для `/leaderboards/global`, `/auth/login`, `/players/:id` через тестовый DI-контейнер с in-memory репозиториями
+
 ```bash
+# Установка зависимостей для тестов
+composer install
+
 # Unit тесты
-vendor/bin/phpunit tests/Unit/
+vendor/bin/phpunit --testsuite Unit
 
 # Integration тесты
-vendor/bin/phpunit tests/Integration/
+vendor/bin/phpunit --testsuite Integration
 
 # Coverage отчет
 vendor/bin/phpunit --coverage-html coverage/
