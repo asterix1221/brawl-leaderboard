@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../store/store';
-import Button from '../presentational/Common/Button';
+import Button from '../components/presentational/Common/Button';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
