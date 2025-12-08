@@ -7,7 +7,7 @@ use Ramsey\Uuid\UuidInterface;
 class Uuid {
     private string $value;
 
-    public function __construct(string $value = null) {
+    public function __construct(?string $value = null) {
         if ($value === null) {
             $this->value = RamseyUuid::uuid4()->toString();
         } else {

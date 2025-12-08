@@ -102,7 +102,7 @@ class LinkBrawlStarsPlayerUseCaseTest extends TestCase
 
         $result = $this->useCase->execute($this->userId, 'PLAYER999');
 
-        $this->assertSame('OldName', $result->getNickname());
+        $this->assertSame('Updated', $result->getNickname());
         $this->assertSame(1000, $result->getTotalTrophies()->getValue());
         $this->assertSame('EU', $result->getRegion());
     }

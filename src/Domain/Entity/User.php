@@ -17,8 +17,8 @@ class User {
         Email $email,
         string $passwordHash,
         ?string $nickname = null,
-        \DateTime $createdAt = null,
-        \DateTime $updatedAt = null
+        ?\DateTime $createdAt = null,
+        ?\DateTime $updatedAt = null
     ) {
         if (empty($passwordHash)) {
             throw new \InvalidArgumentException('Password hash cannot be empty');

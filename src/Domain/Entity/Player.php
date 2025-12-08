@@ -16,7 +16,7 @@ class Player {
         string $nickname,
         Trophy $totalTrophies,
         string $region,
-        \DateTime $lastSyncedAt = null
+        ?\DateTime $lastSyncedAt = null
     ) {
         if (empty($nickname)) {
             throw new \InvalidArgumentException('Nickname cannot be empty');

@@ -21,7 +21,7 @@ class Request {
         return $this->query[$key] ?? $default;
     }
 
-    public function getBody(string $key = null, $default = null) {
+    public function getBody(?string $key = null, $default = null) {
         if ($key === null) {
             return $this->body;
         }
