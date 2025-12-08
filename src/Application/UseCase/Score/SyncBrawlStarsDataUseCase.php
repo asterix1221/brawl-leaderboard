@@ -50,7 +50,6 @@ class SyncBrawlStarsDataUseCase {
                     $synced++;
                 } catch (\Exception $e) {
                     $errors++;
-                    error_log('Error syncing player: ' . $e->getMessage());
                 }
             }
 

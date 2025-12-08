@@ -21,6 +21,7 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
     private $scoreRepositoryMock;
     private $seasonRepositoryMock;
     private $cacheServiceMock;
+    private Uuid $seasonId;
 
     protected function setUp(): void {
         $this->playerRepositoryMock = $this->createMock(PlayerRepositoryInterface::class);
@@ -33,6 +34,19 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
             ->method('findActive')
             ->willReturn($this->activeSeason);
 
+        $this->seasonId = new Uuid('11111111-1111-1111-1111-111111111111');
+        $activeSeason = new Season(
+            $this->seasonId,
+            'Season 1',
+            new \DateTime('-1 day'),
+            new \DateTime('+1 day'),
+            true
+        );
+
+        $this->seasonRepositoryMock
+            ->method('findActive')
+            ->willReturn($activeSeason);
+
         $this->useCase = new GetGlobalLeaderboardUseCase(
             $this->playerRepositoryMock,
             $this->scoreRepositoryMock,
@@ -43,19 +57,11 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
 
     public function testGetGlobalLeaderboardSuccessfully(): void {
         // Arrange
-        $player1 = new Player(
-            id: new PlayerId('player1'),
-            nickname: 'PlayerOne',
-            totalTrophies: new Trophy(3000),
-            region: 'US'
-        );
+        $player1 = new Player(new PlayerId('player1'), 'PlayerOne', new Trophy(3000), 'US');
+        $player2 = new Player(new PlayerId('player2'), 'PlayerTwo', new Trophy(2500), 'US');
 
-        $player2 = new Player(
-            id: new PlayerId('player2'),
-            nickname: 'PlayerTwo',
-            totalTrophies: new Trophy(2500),
-            region: 'US'
-        );
+        $score1 = new Score(new Uuid('21111111-1111-1111-1111-111111111111'), new PlayerId('player1'), $this->seasonId, 5000);
+        $score2 = new Score(new Uuid('21111111-1111-1111-1111-111111111112'), new PlayerId('player2'), $this->seasonId, 4000);
 
         $seasonId = $this->activeSeason->getId();
         $scores = [
@@ -177,12 +183,8 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
 
     public function testGetGlobalLeaderboardWithPagination(): void {
         // Arrange
-        $player = new Player(
-            id: new PlayerId('player1'),
-            nickname: 'PlayerOne',
-            totalTrophies: new Trophy(2000),
-            region: 'US'
-        );
+        $player = new Player(new PlayerId('player1'), 'PlayerOne', new Trophy(2000), 'US');
+        $score = new Score(new Uuid('31111111-1111-1111-1111-111111111111'), new PlayerId('player1'), $this->seasonId, 2000);
 
         $seasonId = $this->activeSeason->getId();
         $scores = [new Score(new Uuid('00000000-0000-0000-0000-000000000003'), $player->getId(), $seasonId, 2100)];
@@ -256,11 +258,12 @@ class GetGlobalLeaderboardUseCaseTest extends TestCase {
         $expectedTrophies = [500, 1500, 2500, 4000];
 
         for ($i = 0; $i < 4; $i++) {
-            $players[] = new Player(
-                id: new PlayerId("player{$i}"),
-                nickname: "Player{$i}",
-                totalTrophies: new Trophy($expectedTrophies[$i]),
-                region: 'US'
+            $players[] = new Player(new PlayerId("player{$i}"), "Player{$i}", new Trophy($expectedTrophies[$i]), 'US');
+            $scores[] = new Score(
+                new Uuid(sprintf('41111111-1111-1111-1111-11111111111%d', $i)),
+                new PlayerId("player{$i}"),
+                $this->seasonId,
+                $expectedTrophies[$i]
             );
         }
 

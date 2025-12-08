@@ -52,6 +52,10 @@ class Player {
 
         $this->totalTrophies = new Trophy($newTrophies);
         $this->region = $newRegion;
+
+        if ($newNickname !== null && $newNickname !== '') {
+            $this->nickname = $newNickname;
+        }
         $this->lastSyncedAt = new \DateTime();
     }
 
