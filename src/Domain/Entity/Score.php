@@ -21,8 +21,8 @@ class Score {
         int $totalScore = 0,
         int $wins = 0,
         int $losses = 0,
-        \DateTime $createdAt = null,
-        \DateTime $updatedAt = null
+        ?\DateTime $createdAt = null,
+        ?\DateTime $updatedAt = null
     ) {
         if ($totalScore < 0) {
             throw new \InvalidArgumentException('Total score cannot be negative');

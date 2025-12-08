@@ -3,6 +3,8 @@
 
 // Health check
 $router->get('/api/health', \App\Infrastructure\Controller\HealthController::class, 'check');
+// Compatibility alias for CLI/ops checks without /api prefix
+$router->get('/checkhealth', \App\Infrastructure\Controller\HealthController::class, 'check');
 
 // Auth routes
 $router->post('/api/auth/register', \App\Infrastructure\Controller\AuthController::class, 'register');

@@ -17,7 +17,7 @@ class Season {
         \DateTime $startDate,
         \DateTime $endDate,
         bool $isActive = true,
-        \DateTime $createdAt = null
+        ?\DateTime $createdAt = null
     ) {
         if (empty($name)) {
             throw new \InvalidArgumentException('Season name cannot be empty');

@@ -2,6 +2,7 @@
 namespace App\Infrastructure\Controller;
 
 use App\Framework\HTTP\JsonResponse;
+use App\Framework\HTTP\Request;
 use \PDO;
 use \Redis;
 
@@ -11,7 +12,7 @@ class HealthController {
         private Redis $redis
     ) {}
 
-    public function check(): JsonResponse {
+    public function check(Request $_request): JsonResponse {
         $status = [
             'status' => 'ok',
             'timestamp' => date('c'),
