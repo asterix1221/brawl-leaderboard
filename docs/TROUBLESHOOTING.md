@@ -44,7 +44,7 @@
   ```
 
 ### Frontend build not served
-- Build the frontend before starting the production compose file so `leaderboard-frontend/dist` exists:
+- Build the frontend before starting the compose file so `leaderboard-frontend/dist` exists:
   ```bash
   cd leaderboard-frontend
   npm install
@@ -57,12 +57,12 @@
 
 ### `/api/health` returns 404
 - Make sure nginx is using the custom config from the repo. The compose file mounts
-  `./docker/nginx/nginx.conf` into the container, so verify it inside the running
-  container:
+  `./docker/nginx/nginx.conf` into the container as `/etc/nginx/nginx.conf`, so verify
+  it inside the running container:
   ```bash
-  docker compose exec nginx cat /etc/nginx/conf.d/default.conf
+  docker compose exec nginx cat /etc/nginx/nginx.conf
   ```
-  The `/api` block must contain `try_files $uri /index.php$is_args$args;` so that
+  The `/api` block must set `SCRIPT_FILENAME` to `/var/www/html/public/index.php` so
   requests are forwarded to PHP instead of being treated as static files.
 - If the config looks correct, reload nginx to apply any recent changes:
   ```bash
