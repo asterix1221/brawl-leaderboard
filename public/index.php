@@ -61,6 +61,12 @@ $container->set(\App\Application\Service\JWTService::class, function() {
     return new \App\Application\Service\JWTService($_ENV['JWT_SECRET'] ?? 'changeme');
 });
 
+$container->set(\App\Infrastructure\Middleware\JWTMiddleware::class, function($container) {
+    return new \App\Infrastructure\Middleware\JWTMiddleware(
+        $container->get(\App\Application\Service\JWTService::class)
+    );
+});
+
 $container->set(\App\Application\Service\CacheService::class, function($container) {
     return new \App\Application\Service\CacheService($container->get('redis'));
 });
@@ -222,16 +228,6 @@ try {
     );
     $corsResponse = $corsMiddleware->handle($request);
     if ($corsResponse !== null) {
-        exit;
-    }
-
-    // Apply JWT middleware
-    $jwtMiddleware = new \App\Infrastructure\Middleware\JWTMiddleware(
-        $container->get(\App\Application\Service\JWTService::class)
-    );
-    $jwtError = $jwtMiddleware->handle($request);
-    if ($jwtError !== null) {
-        echo (string)$jwtError;
         exit;
     }
 
