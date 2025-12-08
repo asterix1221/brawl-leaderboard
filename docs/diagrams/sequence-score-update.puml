@@ -1,0 +1,22 @@
+@startuml
+actor Admin
+participant "Web UI" as Web
+participant "API Backend" as API
+participant "Match Service" as Match
+participant "Worker Queue" as Queue
+participant "DB" as DB
+participant "Cache" as Cache
+
+Admin -> Web: Заполняет форму результата матча
+Web -> API: POST /matches/{id}/approve
+API -> Match: approveMatch(matchId, payload)
+Match -> DB: UPDATE match status
+Match -> DB: INSERT match_results
+Match -> Queue: dispatch RecalculateRatingJob
+API -> Web: 202 Accepted
+
+Queue -> DB: SELECT affected players
+Queue -> DB: UPDATE ratings
+Queue -> Cache: invalidate leaderboard cache
+Queue -> Web: optional websocket event
+@enduml

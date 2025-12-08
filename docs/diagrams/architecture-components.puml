@@ -1,0 +1,23 @@
+@startuml
+!include <C4/C4_Component>
+
+Container_Boundary(api, "API Backend") {
+  Component(auth, "Auth Controller", "Laravel", "JWT/Session аутентификация, refresh токены")
+  Component(board, "Leaderboard Controller", "Laravel", "Чтение лидерборда, фильтры, кеширование")
+  Component(match, "Match Service", "Laravel Service", "Создание/валидация матчей, расчёт рейтинга")
+  Component(worker, "Worker Jobs", "Laravel Queue", "Асинхронный пересчёт, уведомления, очистка кеша")
+  Component(repo, "Repositories", "Eloquent", "Доступ к игрокам, матчам, рейтингам")
+}
+
+SystemDb(db, "Relational DB", "PostgreSQL/MySQL")
+System_Ext(cache, "Redis Cache", "Кеш лидерборда, rate limiting")
+
+Rel(auth, repo, "чтение/запись пользователей")
+Rel(board, cache, "получение/запись кеша")
+Rel(board, repo, "запросы лидерборда")
+Rel(match, repo, "управление матчами")
+Rel(match, worker, "планирование фоновых задач")
+Rel(worker, repo, "обновление рейтинга")
+Rel(worker, cache, "инвалидация кеша")
+Rel(repo, db, "SQL")
+@enduml
