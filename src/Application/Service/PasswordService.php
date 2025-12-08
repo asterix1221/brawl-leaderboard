@@ -3,7 +3,8 @@ namespace App\Application\Service;
 
 class PasswordService {
     public function hash(string $password): string {
-        return password_hash($password, PASSWORD_ARGON2ID);
+        $algorithm = defined('PASSWORD_ARGON2ID') ? \PASSWORD_ARGON2ID : \PASSWORD_BCRYPT;
+        return password_hash($password, $algorithm);
     }
 
     public function verify(string $password, string $hash): bool {

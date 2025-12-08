@@ -42,12 +42,16 @@ class Player {
         return 4;
     }
 
-    public function updateFromSync(int $newTrophies, string $newRegion): void {
+    public function updateFromSync(int $newTrophies, string $newRegion, ?string $newNickname = null): void {
         if ($newTrophies < 0) {
             throw new \InvalidArgumentException('Invalid trophy update');
         }
         $this->totalTrophies = new Trophy($newTrophies);
         $this->region = $newRegion;
+
+        if ($newNickname !== null && $newNickname !== '') {
+            $this->nickname = $newNickname;
+        }
         $this->lastSyncedAt = new \DateTime();
     }
 
