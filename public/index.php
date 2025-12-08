@@ -222,8 +222,6 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     
-    // Remove /api prefix if present
-    $path = str_replace('/api', '', $path);
     if (empty($path)) {
         $path = '/';
     }
