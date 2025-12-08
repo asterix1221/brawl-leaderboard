@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useLeaderboard } from '../../store/store';
+import { useLeaderboard } from '../store/store';
 import LeaderboardTable from '../presentational/Leaderboard/LeaderboardTable';
 import Button from '../presentational/Common/Button';
 

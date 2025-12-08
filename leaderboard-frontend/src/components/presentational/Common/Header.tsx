@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../store/store';
+import { useAuth } from '../../../store/store';
 import Button from './Button';
 
 interface HeaderProps {

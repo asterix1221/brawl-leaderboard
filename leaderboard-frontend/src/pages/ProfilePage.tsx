@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../../store/store';
+import { useAuth } from '../store/store';
 import Button from '../presentational/Common/Button';
 
 const ProfilePage: React.FC = () => {
