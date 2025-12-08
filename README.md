@@ -7,7 +7,8 @@
 ### Требования
 - Docker Desktop (запущенный)
 - Node.js 18+
-- PHP 8.2+ (для локальной разработки)
+- PHP 8.2+ (для локальной разработки) с расширениями `ext-pdo_pgsql` и `ext-redis`
+  - Установка расширений: [Windows](https://www.php.net/manual/en/install.windows.extensions.php) · [macOS](https://www.php.net/manual/en/install.pecl.macos.php) · [Linux](https://www.php.net/manual/en/install.pecl.php)
 - Composer
 
 ### 1. Запуск Backend
@@ -19,6 +20,8 @@ cd brawl-leaderboard
 composer install
 # или собрать образы с установкой зависимостей внутри
 docker compose build --build-arg COMPOSER_AUTH="${COMPOSER_AUTH:-}" --build-arg COMPOSER_TOKEN="${COMPOSER_TOKEN:-}"
+
+# Если в локальном PHP нет `ext-pdo_pgsql`/`ext-redis`, установите расширения или ставьте зависимости внутри Docker (команда выше)
 
 # Запустить Docker контейнеры
 docker-compose up -d
