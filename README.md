@@ -251,13 +251,17 @@ npm run test:e2e
 
 ### Production
 ```bash
-# Сборка frontend
+# Сборка frontend (артефакты появятся в leaderboard-frontend/dist)
 cd leaderboard-frontend
+npm ci
 npm run build
 
 # Запуск с production конфигом
-docker-compose -f docker-compose.prod.yml up -d
+cd ..
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
+
+Файл `docker-compose.prod.yml` использует переменные окружения из `.env` и монтирует собранный фронтенд в `public/frontend`. Обязательно задайте реальные значения секретов и отключите дебаг-режим перед запуском.
 
 ### Переменные окружения для production
 - `APP_ENV=production`
