@@ -13,8 +13,14 @@
 ### 1. Запуск Backend
 
 ```bash
-# Запустить Docker контейнеры
 cd brawl-leaderboard
+
+# Установить зависимости Backend (выберите вариант)
+composer install
+# или собрать образы с установкой зависимостей внутри
+docker compose build --build-arg COMPOSER_AUTH="${COMPOSER_AUTH:-}" --build-arg COMPOSER_TOKEN="${COMPOSER_TOKEN:-}"
+
+# Запустить Docker контейнеры
 docker-compose up -d
 
 # Применить миграции БД

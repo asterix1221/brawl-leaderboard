@@ -25,6 +25,13 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
+# Copy Composer manifests and install dependencies
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --optimize-autoloader
+
+# Copy application source code
+COPY . .
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html
 
