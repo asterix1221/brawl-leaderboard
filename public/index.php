@@ -110,6 +110,8 @@ $container->set(
 $container->set(\App\Application\UseCase\Leaderboard\GetGlobalLeaderboardUseCase::class, function($container) {
     return new \App\Application\UseCase\Leaderboard\GetGlobalLeaderboardUseCase(
         $container->get(\App\Domain\Repository\PlayerRepositoryInterface::class),
+        $container->get(\App\Domain\Repository\ScoreRepositoryInterface::class),
+        $container->get(\App\Domain\Repository\SeasonRepositoryInterface::class),
         $container->get(\App\Application\Service\CacheService::class)
     );
 });
@@ -150,6 +152,15 @@ $container->set(\App\Application\UseCase\Player\LinkBrawlStarsPlayerUseCase::cla
     );
 });
 
+$container->set(\App\Application\UseCase\Score\UpsertPlayerScoreUseCase::class, function($container) {
+    return new \App\Application\UseCase\Score\UpsertPlayerScoreUseCase(
+        $container->get(\App\Domain\Repository\ScoreRepositoryInterface::class),
+        $container->get(\App\Domain\Repository\PlayerRepositoryInterface::class),
+        $container->get(\App\Domain\Repository\SeasonRepositoryInterface::class),
+        $container->get(\App\Application\Service\CacheService::class)
+    );
+});
+
 // ========== Controllers ==========
 $container->set(\App\Infrastructure\Controller\HealthController::class, function($container) {
     return new \App\Infrastructure\Controller\HealthController(
@@ -176,6 +187,12 @@ $container->set(\App\Infrastructure\Controller\PlayerController::class, function
     return new \App\Infrastructure\Controller\PlayerController(
         $container->get(\App\Application\UseCase\Player\GetPlayerProfileUseCase::class),
         $container->get(\App\Application\UseCase\Player\LinkBrawlStarsPlayerUseCase::class)
+    );
+});
+
+$container->set(\App\Infrastructure\Controller\ScoreController::class, function($container) {
+    return new \App\Infrastructure\Controller\ScoreController(
+        $container->get(\App\Application\UseCase\Score\UpsertPlayerScoreUseCase::class)
     );
 });
 

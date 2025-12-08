@@ -16,3 +16,7 @@ $router->get('/players/search', \App\Infrastructure\Controller\LeaderboardContro
 $router->get('/players/:playerId', \App\Infrastructure\Controller\PlayerController::class, 'getProfile');
 $router->post('/players/link', \App\Infrastructure\Controller\PlayerController::class, 'link');
 
+// Score routes
+$router->post('/scores', \App\Infrastructure\Controller\ScoreController::class, 'upsert');
+$router->put('/scores', \App\Infrastructure\Controller\ScoreController::class, 'upsert');
+

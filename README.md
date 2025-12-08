@@ -103,7 +103,7 @@ brawl-leaderboard/
 - `GET /api/health` - Проверка состояния сервисов
 - `POST /api/auth/register` - Регистрация
 - `POST /api/auth/login` - Вход
-- `GET /api/leaderboards/global` - Глобальный лидерборд
+- `GET /api/leaderboards/global` - Глобальный лидерборд (поддерживает `limit`, `offset`, `region`, `seasonId`/`season` для фильтрации по сезону)
 - `GET /api/players/search` - Поиск игроков
 
 ### Protected (JWT required)
@@ -111,6 +111,7 @@ brawl-leaderboard/
 - `POST /api/players/link` - Привязка Brawl Stars аккаунта
 - `GET /api/players/me/stats` - Статистика
 - `GET /api/players/me/history` - История изменений
+- `POST /api/scores` / `PUT /api/scores` - Создание или обновление очков игрока за сезон (тело: `playerId`, `seasonId`/`season` при необходимости, `totalScore`, `wins`, `losses`)
 
 ## 🎨 Frontend Features
 
